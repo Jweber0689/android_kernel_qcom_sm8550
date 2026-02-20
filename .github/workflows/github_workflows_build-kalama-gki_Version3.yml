@@ -1,4 +1,3 @@
-# Build Kalama GKI Kernel - integrates SUSFS & KernelSU at CI time and builds with gki_defconfig
 name: Build Kalama GKI Kernel
 on:
   workflow_dispatch:
