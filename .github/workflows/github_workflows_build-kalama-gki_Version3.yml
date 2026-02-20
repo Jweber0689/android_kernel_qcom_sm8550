@@ -1,0 +1,148 @@
+# Build Kalama GKI Kernel - integrates SUSFS & KernelSU at CI time and builds with gki_defconfig
+name: Build Kalama GKI Kernel
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+    env:
+      SUSFS_URL: https://gitlab.com/simonpunk/susfs4ksu.git
+      KERNELSU_URL: https://github.com/tiann/KernelSU.git
+      CROSS_COMPILE: aarch64-linux-gnu-
+      ARCH: arm64
+      OUTDIR: out
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          build-essential bc bison flex libssl-dev libelf-dev dwarves \
+          libncurses-dev git rsync ccache python3 unzip
+        # cross compiler
+        sudo apt-get install -y gcc-aarch64-linux-gnu
+
+    - name: Show runner info
+      run: uname -a || true
+
+    - name: Add integration script and make executable
+      run: |
+        mkdir -p scripts/ci
+        cat > scripts/ci/integrate_susfs_kernelsu.sh <<'SCRIPT'
+#!/usr/bin/env bash
+set -xeuo pipefail
+SUSFS_URL="${SUSFS_URL}"
+KERNELSU_URL="${KERNELSU_URL}"
+SUSFS_DIR="fs/susfs"
+KERNELSU_DIR="security/kernelsu"
+
+# Clone third-party sources
+rm -rf /tmp/susfs_src /tmp/kernelsu_src
+git clone --depth 1 "${SUSFS_URL}" /tmp/susfs_src
+git clone --depth 1 "${KERNELSU_URL}" /tmp/kernelsu_src
+
+# Copy into kernel tree
+rm -rf "${SUSFS_DIR}" "${KERNELSU_DIR}"
+mkdir -p "${SUSFS_DIR}" "${KERNELSU_DIR}"
+rsync -a /tmp/susfs_src/ "${SUSFS_DIR}/"
+rsync -a /tmp/kernelsu_src/ "${KERNELSU_DIR}/"
+
+# Create minimal Kconfig/Makefile for susfs
+cat > "${SUSFS_DIR}/Kconfig" <<'KCONF'
+config SUSFS
+    bool "susfs filesystem"
+    help
+      SUSFS integration for KernelSU.
+KCONF
+
+cat > "${SUSFS_DIR}/Makefile" <<'MFILE'
+obj-$(CONFIG_SUSFS) += susfs/
+MFILE
+
+# Ensure fs/Kconfig sources susfs Kconfig
+if ! grep -Fq 'fs/susfs/Kconfig' fs/Kconfig; then
+  echo '' >> fs/Kconfig
+  echo 'source "fs/susfs/Kconfig"' >> fs/Kconfig
+fi
+
+# Ensure fs/Makefile builds susfs
+if ! grep -Fq 'obj-$(CONFIG_SUSFS)' fs/Makefile; then
+  echo >> fs/Makefile
+  echo '# SUSFS' >> fs/Makefile
+  echo 'obj-$(CONFIG_SUSFS) += susfs/' >> fs/Makefile
+fi
+
+# Create minimal Kconfig/Makefile for KernelSU
+cat > "${KERNELSU_DIR}/Kconfig" <<'KCONF'
+config KERNELSU
+    bool "KernelSU support"
+    help
+      KernelSU integration (in-kernel root management support).
+KCONF
+
+cat > "${KERNELSU_DIR}/Makefile" <<'MFILE'
+obj-$(CONFIG_KERNELSU) += kernelsu/
+MFILE
+
+# Ensure security/Kconfig sources kernelsu Kconfig
+if ! grep -Fq 'security/kernelsu/Kconfig' security/Kconfig; then
+  echo '' >> security/Kconfig
+  echo 'source "security/kernelsu/Kconfig"' >> security/Kconfig
+fi
+
+# Ensure security/Makefile builds kernelsu
+if ! grep -Fq 'obj-$(CONFIG_KERNELSU)' security/Makefile; then
+  echo >> security/Makefile
+  echo '# KernelSU' >> security/Makefile
+  echo 'obj-$(CONFIG_KERNELSU) += kernelsu/' >> security/Makefile
+fi
+
+echo "Integration complete."
+SCRIPT
+        chmod +x scripts/ci/integrate_susfs_kernelsu.sh
+
+    - name: Integrate susfs and KernelSU into tree (CI-time)
+      run: |
+        scripts/ci/integrate_susfs_kernelsu.sh
+
+    - name: Configure kernel (gki_defconfig)
+      run: |
+        export ARCH=${{ env.ARCH }}
+        # Generate base gki defconfig
+        make ARCH=${{ env.ARCH }} gki_defconfig
+
+        # Enable SUSFS and KERNELSU by appending to .config (built-in)
+        echo "CONFIG_SUSFS=y" >> .config
+        echo "CONFIG_KERNELSU=y" >> .config
+
+        # Refresh config to resolve dependencies
+        make ARCH=${{ env.ARCH }} olddefconfig
+
+    - name: Build kernel
+      env:
+        CROSS_COMPILE: ${{ env.CROSS_COMPILE }}
+        ARCH: ${{ env.ARCH }}
+      run: |
+        # Use an output directory to keep workspace clean
+        make -j"$(nproc)" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} O=${OUTDIR}
+
+    - name: Upload kernel artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: kernel-artifacts
+        path: |
+          out/arch/arm64/boot/Image
+          out/arch/arm64/boot/dts
+          out/arch/arm64/boot/dts/built-dtbs
+          out/arch/arm64/boot/Image.gz
+          out/arch/arm64/boot/dtb
+        if-no-files-found: error
