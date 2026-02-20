@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Local Integration <local@example.com>
+Date: Fri, 20 Feb 2026 00:00:00 +0000
+Subject: [PATCH] Add SUSFS and KernelSU stubs (Kconfig/Makefile) and local integration script
+
+---
+ scripts/local_integrate_susfs_kernelsu.sh | 124 +++++++++++++++++++++++++++++++++++
+ fs/susfs/Kconfig                          |   3 ++
+ fs/susfs/Makefile                         |   2 +
+ security/kernelsu/Kconfig                 |   3 ++
+ security/kernelsu/Makefile                |   2 +
+ 5 files changed, 134 insertions(+)
+ create mode 100755 scripts/local_integrate_susfs_kernelsu.sh
+ create mode 100644 fs/susfs/Kconfig
+ create mode 100644 fs/susfs/Makefile
+ create mode 100644 security/kernelsu/Kconfig
+ create mode 100644 security/kernelsu/Makefile
+---
+*** End Patch

@@ -1,0 +1,102 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: CI Integration <ci@example.com>
+Date: Fri, 20 Feb 2026 00:00:00 +0000
+Subject: [PATCH] Add SUSFS and KernelSU integration stubs (Kconfig/Makefile) and CI
+
+---
+ .github/workflows/build-kalama-gki.yml | 245 +++++++++++++++++++++++++++++++
+ scripts/ci/integrate_susfs_kernelsu.sh | 170 +++++++++++++++++++
+ fs/Makefile                            |   6 +++
+ fs/Kconfig                             |   6 +++
+ security/Makefile                      |   6 +++
+ security/Kconfig                       |   6 +++
+ fs/susfs/Kconfig                       |  18 +++
+ fs/susfs/Makefile                      |   6 +
+ security/kernelsu/Kconfig              |  18 +++
+ security/kernelsu/Makefile             |   6 +
+ 10 files changed, 483 insertions(+)
+ create mode 100644 .github/workflows/build-kalama-gki.yml
+ create mode 100755 scripts/ci/integrate_susfs_kernelsu.sh
+ create mode 100644 fs/susfs/Kconfig
+ create mode 100644 fs/susfs/Makefile
+ create mode 100644 security/kernelsu/Kconfig
+ create mode 100644 security/kernelsu/Makefile
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -1,3 +1,9 @@
++# SUSFS integration (added by CI patch)
++obj-$(CONFIG_SUSFS) += susfs/
++
++ # existing content follows
++
+ (existing content...)
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -1,3 +1,9 @@
++# SUSFS Kconfig inclusion (added by CI patch)
++source "fs/susfs/Kconfig"
++
++ # existing content follows
++
+ (existing content...)
+--- a/security/Makefile
++++ b/security/Makefile
+@@ -1,3 +1,9 @@
++# KernelSU integration (added by CI patch)
++obj-$(CONFIG_KERNELSU) += kernelsu/
++
++ # existing content follows
++
+ (existing content...)
+--- a/security/Kconfig
++++ b/security/Kconfig
+@@ -1,3 +1,9 @@
++# KernelSU Kconfig inclusion (added by CI patch)
++source "security/kernelsu/Kconfig"
++
++ # existing content follows
++
+ (existing content...)
+--- /dev/null
++++ b/fs/susfs/Kconfig
+@@ -0,0 +1,18 @@
++config SUSFS
++    bool "susfs filesystem"
++    help
++      SUSFS integration for KernelSU.
++
++# Additional options (placeholders)
++config SUSFS_DEBUG
++    bool "Enable SUSFS debug messages"
++    depends on SUSFS
++    default n
++
+--- /dev/null
++++ b/fs/susfs/Makefile
+@@ -0,0 +1,6 @@
++obj-$(CONFIG_SUSFS) += susfs/
++
++# Source tree expected at fs/susfs/<sources...>
++
+--- /dev/null
++++ b/security/kernelsu/Kconfig
+@@ -0,0 +1,18 @@
++config KERNELSU
++    bool "KernelSU support"
++    help
++      KernelSU integration (in-kernel root management support).
++
++config KERNELSU_DEBUG
++    bool "Enable KernelSU debug"
++    depends on KERNELSU
++    default n
++
+--- /dev/null
++++ b/security/kernelsu/Makefile
+@@ -0,0 +1,6 @@
++obj-$(CONFIG_KERNELSU) += kernelsu/
++
++# Source tree expected at security/kernelsu/<sources...>
++
+-- 
+2.40.1
