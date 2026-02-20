@@ -38,7 +38,6 @@ jobs:
         mkdir -p scripts/ci
         cat > scripts/ci/integrate_susfs_kernelsu.sh <<'SCRIPT'
 
-#!/usr/bin/env bash
 set -xeuo pipefail
 SUSFS_URL="${SUSFS_URL}"
 KERNELSU_URL="${KERNELSU_URL}"
